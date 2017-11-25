@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 import sqlite3
 import click
@@ -37,8 +38,16 @@ def create_final_db(in_db, out_db):
     companies = pd.read_sql(sql_companies, constr_in)
     companies.to_sql("companies", constr_out, index=False)
 
+    countries = pd.read_csv("countries.csv")
+    countries.to_sql("countries", constr_out, index=False)
+
     sql_stops = "SELECT stop_id, name, country FROM stops"
     stops = pd.read_sql(sql_stops, constr_in)
+    stops = stops.set_index(["stop_id", "country"])
+    geo_csv = pd.read_csv("geo.csv").dropna()
+    geo_csv = geo_csv.set_index(["stop_id", "country"])
+    stops = stops.join(geo_csv[["lng", "lat", "google_name"]])
+    stops = stops.reset_index()
     stops.to_sql("stops", constr_out, index=False)
 
     sql_routes = "SELECT DISTINCT trains.number AS train_id, routes.country, stop_id,  (CASE WHEN arr_hour IS NULL THEN NULL ELSE routes.arr_day END) as arr_day, arr_hour, arr_min, dep_day, dep_hour, dep_min, (CASE WHEN arr_hour IS NULL THEN 0 ELSE 1 END) AS is_stop FROM routes JOIN trains ON trains.number = routes.number"
@@ -51,11 +60,17 @@ def _parse_csv(path, columns):
 def parse_stops(path) -> pd.DataFrame:
     return _parse_csv(path, ["country", "stop_id", "_cislo_obvodu", "name"])
 
+def _extract_number(number):
+    frags = number.split("/")
+    return frags[0]
+
 def parse_trains(path) -> pd.DataFrame:
-    return _parse_csv(path, ["number", "name", "_rezim", "company", "_urcvl", "updated_at", "valid_from", "valid_to", "country", "_evciskds", "_cena", "_produkt", "_novyvl"])
+    df = _parse_csv(path, ["number", "name", "_rezim", "company", "_urcvl", "updated_at", "valid_from", "valid_to", "country", "_evciskds", "_cena", "_produkt", "_novyvl"])
+    df["number"] = df["number"].map(_extract_number)
+    return df
 
 def parse_routes(path) -> pd.DataFrame:
-    return _parse_csv(path, ["number", "country", "stop_id", "_ob", "_cislo", "_typ",
+    df = _parse_csv(path, ["number", "country", "stop_id", "_ob", "_cislo", "_typ",
                            "_stkolprij",
                            "arr_day", "arr_hour", "arr_min", "arr_halfmin",
                            "travel_time_in_min",
@@ -72,20 +87,24 @@ def parse_routes(path) -> pd.DataFrame:
                            "_tecko", "_odjcasprij", "_rucbr", "_relacnivl",
                            "_obsluhbl", "_lvjd", "_druhyvlakd3", "_vjkolobsvz",
                            "_vjkolobssv"])
+    df["number"] = df["number"].map(_extract_number)
+    return df
 
 def parse_companies(path) -> pd.DataFrame:
     return _parse_csv(path, ["company_id", "_cislo", "name", "_zkratka", "country", "_cislo4"])
 
 def parse_trains2(path) -> pd.DataFrame:
-    return _parse_csv(path, ["train_id", "country", "begin_country", "begin_stop", "_obz", "end_country", "end_stop", "_obdo",
+    df = _parse_csv(path, ["train_id", "country", "begin_country", "begin_stop", "_obz", "end_country", "end_stop", "_obdo",
                             "_kalendar", "code", "_porzstz", "_porzstdo"])
+    df["train_id"] = df["train_id"].map(_extract_number)
+    return df
 
 @click.command()
 @click.argument("in_dir")
 @click.argument("db_file")
 def run_app(in_dir, db_file):
-    create_help_db(in_dir, "data_full.db")
-    create_final_db("data_full.db", db_file)
+    create_help_db(in_dir, "data_full2.db")
+    create_final_db("data_full2.db", db_file)
 
 @click.command()
 @click.argument("in_dir")

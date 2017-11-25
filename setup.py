@@ -10,7 +10,7 @@ options = dict(
     entry_points = {
         'console_scripts' : [
             'trainxtract = trainxtract:run_app',
-            'trainxtract-help = trainxtract:run_help'
+            'trainxtract-help = trainxtract:run_help',
             'trainxtract-final = trainxtract:run_final'
         ]
     }
