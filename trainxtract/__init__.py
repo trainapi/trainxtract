@@ -46,6 +46,9 @@ def create_final_db(in_db, out_db):
     stops = stops.set_index(["stop_id", "country"])
     geo_csv = pd.read_csv("geo.csv").dropna()
     geo_csv = geo_csv.set_index(["stop_id", "country"])
+    geo_csv["long"] = geo_csv["lat"]
+    geo_csv["lat"] = geo_csv["lng"]
+    geo_csv["lng"] = geo_csv["long"]
     stops = stops.join(geo_csv[["lng", "lat", "google_name"]])
     stops = stops.reset_index()
     stops.to_sql("stops", constr_out, index=False)
